@@ -3,8 +3,70 @@
 #include <stdbool.h>
 #include "display.h"
 
+typedef struct state {
+    int opDX;
+    int opDY;
+    int opDT;
+    int opPEN;
+    display *d;
+} State;
+
+static const int DX = 0;
+static const int DY = 1;
+static const int DT = 2;
+static const int PEN = 3;
+typedef unsigned char byte;
+
 // TODO: upgrade the run function, adding functions to support it.
 
+void DX(){
+
+}
+
+void DY(){
+
+}
+
+void DT(){
+
+}
+
+void PEN(){
+
+}
+
+//unpack the bytes from binary file into respective opcodes and operands
+void unpack(byte b, int i){
+    int opcode[16];
+    int operand[16];
+    opcode[i] = b >> 6 & 0xFF;
+    operand[i] = b & 0x3F;
+    printf("%i \t %i \n", opcode[i], operand[i]);
+    State state;
+    if(opcode [i] == 0){
+        state.opDX = operand[i];
+    }
+    else if(opcode[i] == 1){
+        state.opDY = operand[i];
+    }
+    else if(opcode[i] == 2){
+        state.opDT = operand[i];
+    }
+    else{
+        state.opPEN = operand[i];
+    }
+}
+//reads individual bytes from a binary file and prints them out in order
+void interpret(FILE *in, display *d){
+    byte b = fgetc(in);
+    int i = 0;
+    while (! feof(in)) {
+        printf("%02x\t", b);
+        unpack(b, i);
+        b = fgetc(in);
+        i++;
+    }
+}
 // Read sketch instructions from the given file.  If test is NULL, display the
 // result in a graphics window, else check the graphics calls made.
 void run(char *filename, char *test[]) {
@@ -14,6 +76,7 @@ void run(char *filename, char *test[]) {
         exit(1);
     }
     display *d = newDisplay(filename, 200, 200, test);
+    interpret(in, d);
     end(d);
     fclose(in);
 }
