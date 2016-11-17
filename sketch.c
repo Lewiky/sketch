@@ -23,30 +23,18 @@ void drawLine(State *st){
     st->x = st->x + st->opDX;
     st->y = st->y + st->opDY;
 }
-
-//update the opcode for a recieved DX opcode
-void DX(State *st, int operand){
-    st->opDX = operand;
+//update the opcode for a recieved DY/DX opcodes
+void makeMove(State *st, int operand){
+    st->opDY = operand;
     if(st->opPEN == 3){
         drawLine(st);
     }
     else{
+        st->y = st->y + st->opDY;
         st->x = st->x + st->opDX;
     }
-    st->opDX = 0;
-    return;
-}
-
-//update the opcode for a recieved DY opcode
-void DY(State *st, int operand){
-    st->opDY = operand;
-    if(st->opPEN == 3 && st->opDY != 0){
-        drawLine(st);
-    }
-    else{
-        st->y = st->y + st->opDY;
-    }
     st->opDY = 0;
+    st->opDX = 0;
     return;
 }
 
@@ -82,10 +70,10 @@ void unpack(byte b, int i, display *d, State *st){
     printf("%i \t %i \n", opcode[i], operand[i]);
     st->d = d;
     if(opcode [i] == 0){
-        DX(st, operand[i]);
+        st->opDX = operand[i];
     }
     else if(opcode[i] == 1){
-        DY(st, operand[i]);
+        makeMove(st, operand[i]);
     }
     else if(opcode[i] == 2){
         DT(st ,operand[i]);
