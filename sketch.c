@@ -4,6 +4,8 @@
 #include "display.h"
 
 typedef struct state {
+    int x;
+    int y;
     int opDX;
     int opDY;
     int opDT;
@@ -11,58 +13,96 @@ typedef struct state {
     display *d;
 } State;
 
-static const int DX = 0;
-static const int DY = 1;
-static const int DT = 2;
-static const int PEN = 3;
 typedef unsigned char byte;
 
 // TODO: upgrade the run function, adding functions to support it.
 
-void DX(){
-
+void drawLine(State *st){
+    printf("moving from %d,%d to %d,%d\n",st->x,st->y,(st->x + st->opDX),(st->y + st->opDY));
+    line(st->d, st->x, st->y, (st->x + st->opDX),(st->y + st->opDY));
+    st->x = st->x + st->opDX;
+    st->y = st->y + st->opDY;
 }
 
-void DY(){
-
+//update the opcode for a recieved DX opcode
+void DX(State *st, int operand){
+    st->opDX = operand;
+    if(st->opPEN == 3){
+        drawLine(st);
+    }
+    else{
+        st->x = st->x + st->opDX;
+    }
+    st->opDX = 0;
+    return;
 }
 
-void DT(){
-
+//update the opcode for a recieved DY opcode
+void DY(State *st, int operand){
+    st->opDY = operand;
+    if(st->opPEN == 3 && st->opDY != 0){
+        drawLine(st);
+    }
+    else{
+        st->y = st->y + st->opDY;
+    }
+    st->opDY = 0;
+    return;
 }
 
-void PEN(){
+//update the opcode for a recieved DT opcode
+void DT(State *st, int operand){
+    st->opDT = operand;
+    pause(st->d, st->opDT);
+    return;
+}
 
+//update the opcode for a recieved PEN opcode
+void PEN(State *st, int operand){
+    if(st->opPEN == 3){
+        st->opPEN = 0;
+        printf("pen down\n");
+        return;
+    }
+    else{
+        st->opPEN = operand;
+        return;
+    }
 }
 
 //unpack the bytes from binary file into respective opcodes and operands
-void unpack(byte b, int i){
+void unpack(byte b, int i, display *d, State *st){
     int opcode[16];
     int operand[16];
     opcode[i] = b >> 6 & 0xFF;
     operand[i] = b & 0x3F;
+    if(operand[i] > 31 && (opcode[i] == 0 || opcode[i] == 1 )){
+        operand[i] = -32 + (operand[i] - 32);
+    }
     printf("%i \t %i \n", opcode[i], operand[i]);
-    State state;
+    st->d = d;
     if(opcode [i] == 0){
-        state.opDX = operand[i];
+        DX(st, operand[i]);
     }
     else if(opcode[i] == 1){
-        state.opDY = operand[i];
+        DY(st, operand[i]);
     }
     else if(opcode[i] == 2){
-        state.opDT = operand[i];
+        DT(st ,operand[i]);
     }
     else{
-        state.opPEN = operand[i];
+        PEN(st, operand[i]);
     }
 }
 //reads individual bytes from a binary file and prints them out in order
 void interpret(FILE *in, display *d){
     byte b = fgetc(in);
     int i = 0;
+    State state = {0,0,0,0,0,0,d};
+    State *st = &state;
     while (! feof(in)) {
         printf("%02x\t", b);
-        unpack(b, i);
+        unpack(b, i, d, st);
         b = fgetc(in);
         i++;
     }
@@ -168,7 +208,7 @@ char **boxTest = (char *[]) {
     NULL
 };
 
-// The calls that should be made for box.sketch.
+// The calls that should be made for oxo.sketch.
 char **oxoTest = (char *[]) {
     "pause(d,63)", "pause(d,63)", "pause(d,63)", "pause(d,63)", "pause(d,63)",
     "line(d,30,40,60,40)",
