@@ -4,7 +4,6 @@
 #include <math.h>
 #include "display.h"
 
-
 typedef struct state {
     int x;
     int y;
@@ -19,8 +18,7 @@ typedef struct state {
 
 typedef unsigned char byte;
 
-// TODO: upgrade the run function, adding functions to support it.
-
+//draw the line, using line if using basic opcode set or using cline if using extnded opcodes
 void drawLine(State *st){
     printf("moving from %d,%d to %d,%d\n",st->x,st->y,(st->x + st->opDX),(st->y + st->opDY));
     if(st->colour == 0x000000FF){
