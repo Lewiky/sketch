@@ -1,7 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <math.h>
 #include "display.h"
+
 
 typedef struct state {
     int x;
@@ -11,6 +13,8 @@ typedef struct state {
     int opDT;
     int opPEN;
     display *d;
+    FILE *in;
+    int colour;
 } State;
 
 typedef unsigned char byte;
@@ -19,7 +23,12 @@ typedef unsigned char byte;
 
 void drawLine(State *st){
     printf("moving from %d,%d to %d,%d\n",st->x,st->y,(st->x + st->opDX),(st->y + st->opDY));
-    line(st->d, st->x, st->y, (st->x + st->opDX),(st->y + st->opDY));
+    if(st->colour == 0x000000FF){
+        line(st->d, st->x, st->y, (st->x + st->opDX),(st->y + st->opDY));
+    }
+    else{
+        cline(st->d, st->x, st->y, (st->x + st->opDX),(st->y + st->opDY),st->colour);
+    }
     st->x = st->x + st->opDX;
     st->y = st->y + st->opDY;
 }
@@ -27,7 +36,7 @@ void drawLine(State *st){
 void makeMove(State *st, int operand){
     st->opDY = operand;
     if(st->opPEN == 3){
-        drawLine(st);
+            drawLine(st);
     }
     else{
         st->y = st->y + st->opDY;
@@ -58,6 +67,48 @@ void PEN(State *st, int operand){
     }
 }
 
+//if opcode is 3, launch extension mechanism
+void extension(State *st, int operand, byte b){
+    int extendedOpcode = b  & 0x0F;
+    int operandNum = (b >> 4) & 0x03;
+    if (operandNum == 3) {operandNum = 4;}
+    printf("operand num = %i \n", operandNum);
+    int xtraOperand = 0;
+    if(operandNum > 0){
+        for(int i =0; i < operandNum; i++){
+            byte oper = fgetc(st->in);
+            xtraOperand = (xtraOperand << 8) | oper;
+        }
+    }
+    int maxnum = (pow(2,(8*operandNum))/2)-1;
+    if(xtraOperand >maxnum){
+        xtraOperand = xtraOperand - (maxnum+1)*2;
+    }
+    printf("extra operand = %i\n",xtraOperand);
+    if(extendedOpcode == 3){
+        PEN(st,operand);
+    }
+    else if(extendedOpcode == 4){
+        clear(st->d);
+    }
+    else if(extendedOpcode ==5){
+        printf("Waiting for key press.\n");
+        key(st->d);
+    }
+    else if(extendedOpcode == 2){
+        DT(st, xtraOperand);
+    }
+    else if(extendedOpcode == 0){
+        st->opDX = xtraOperand;
+    }
+    else if(extendedOpcode == 1){
+        makeMove(st, xtraOperand);
+    }
+    else if(extendedOpcode == 6){
+        st->colour = xtraOperand;
+    }
+}
+
 //unpack the bytes from binary file into respective opcodes and operands
 void unpack(byte b, int i, display *d, State *st){
     int opcode[16];
@@ -65,7 +116,7 @@ void unpack(byte b, int i, display *d, State *st){
     opcode[i] = b >> 6 & 0xFF;
     operand[i] = b & 0x3F;
     if(operand[i] > 31 && (opcode[i] == 0 || opcode[i] == 1 )){
-        operand[i] = -32 + (operand[i] - 32);
+        operand[i] = operand[i] - 64;
     }
     printf("%i \t %i \n", opcode[i], operand[i]);
     st->d = d;
@@ -79,14 +130,14 @@ void unpack(byte b, int i, display *d, State *st){
         DT(st ,operand[i]);
     }
     else{
-        PEN(st, operand[i]);
+        extension(st, operand[i], b);
     }
 }
 //reads individual bytes from a binary file and prints them out in order
 void interpret(FILE *in, display *d){
     byte b = fgetc(in);
     int i = 0;
-    State state = {0,0,0,0,0,0,d};
+    State state = {0,0,0,0,0,0,d,in,0x000000FF};
     State *st = &state;
     while (! feof(in)) {
         printf("%02x\t", b);
